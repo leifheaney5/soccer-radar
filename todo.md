@@ -15,11 +15,12 @@
   - Evidence: Chromium/WebKit browser checks → 22 passed; route/app tests → 62 passed; `RESULT: PASS`, exit status 0.
   - Captured output: `C:\Users\lphea\AppData\Local\Temp\soccer-radar-T003-web-20260928.log`.
   - Latest evidence: Chromium/WebKit branding/PWA checks: 24 passed; `RESULT: PASS`, exit 0; log: `.checks/logs/T003-20260929-192357.log`.
-- [ ] T004: Rebrand iOS display/store metadata, set the bundle ID to `com.leifheaney.soccerradar`, and support Universal Links on both domains; verify source assets and the candidate hosted CI/iOS workflows.
+- [x] T004: Rebrand iOS display/store metadata, set the bundle ID to `com.leifheaney.soccerradar`, and support Universal Links on both domains; verify source assets and the candidate hosted CI/iOS workflows.
   - Verify: `./check.sh T004`
   - Scope update 2026-09-30: the owner first requested `soccerradar.app`, then supplied the existing App Store Connect record and superseded that ID with `com.leifheaney.soccerradar`; prior evidence (including the 2026-09-29 `check.sh` run against `c7116a5`) applies only to the former identifier.
   - Evidence: local source gate `python -m pytest tests/test_ios_release_assets.py -q` → 14 passed; `RESULT: PASS`, exit status 0.
   - Captured output: `C:\Users\lphea\AppData\Local\Temp\soccer-radar-T004-ios-source-20260928.log`.
+  - Latest evidence: iOS source checks: 21 passed; CI and iOS workflows succeeded for `0217031860eb74bc45a26a48739d474cc90dbf31` (bundle ID `com.leifheaney.soccerradar`); `RESULT: PASS`, exit 0; log: `.checks/logs/T004-20261006-142809.log`.
 - [x] T005: Update current monitor, OpenAPI, release documentation, and changelog to the Soccer Radar origin.
   - Verify: `./check.sh T005`
   - Evidence: `node --test tests/synthetic-monitor.test.mjs` → 12 passed; Python routes/native checks → 38 passed; `RESULT: PASS`, exit status 0.
@@ -36,16 +37,19 @@
   - Review: P2 allowlist drift finding addressed with a registry-to-web/iOS mapping regression. The OpenAPI `WatchOption` schema is now documented and its contract test passes. Hosted iOS workflow succeeded.
   - Captured output: `C:\Users\lphea\AppData\Local\Temp\soccer-radar-where-to-watch-release-matrix-rerun-20260929.log` (`RESULTS pytest=0 compile=0 js=0 node=0 npmAudit=0 pipAudit=0 browser=0 diff=0`; shell exited 0).
   - Latest evidence: provider/iOS source tests: 68 passed; Chromium/WebKit checks: 22 passed; iOS workflow succeeded; `RESULT: PASS`, exit 0; log: `.checks/logs/T007-20260929-192729.log`.
-- [ ] T008: Add scheduled, source-backed regional broadcast observations with stale-safe Redis persistence, API coverage states, and web/iOS region preferences. Verify with focused broadcast/API/browser tests and the documented release matrix.
+- [x] T008: Add scheduled, source-backed regional broadcast observations with stale-safe Redis persistence, API coverage states, and web/iOS region preferences. Verify with focused broadcast/API/browser tests and the documented release matrix.
   - Verify: `./check.sh T008`
   - Command: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_broadcast_refresh.py tests/test_broadcast_adapter.py tests/test_broadcast_coverage.py tests/test_broadcast_sources.py -q`
   - Evidence: focused Python/API/adapter/coverage/source/iOS asset checks → 41 passed; follow-up refresh/source/iOS checks after review fixes → 35 passed. Full Python suite → 312 passed; compileall passed; Node smoke invariants 4/4 and Node suite 42/42 passed; syntax check passed for 47 JavaScript files; npm audit and pip-audit found no vulnerabilities; OpenAPI YAML/security references validated; final `git diff --check` passed. Browser matrix → 229 passed, 1 clipboard-label timing failure in Chromium; that single test passed when rerun alone. Focused broadcast browser tests → 18 passed in Chromium/WebKit.
-- [ ] T009: Correct current product, canonical-host, changelog, API, and OpenAPI documentation, and add a task-aware verification runner with readable per-task logs.
+  - Latest evidence: broadcast refresh/adapter/coverage/source tests: 33 passed; `RESULT: PASS`, exit 0; log: `.checks/logs/T008-20261006-142753.log`.
+- [x] T009: Correct current product, canonical-host, changelog, API, and OpenAPI documentation, and add a task-aware verification runner with readable per-task logs.
   - Verify: `./check.sh T009`
   - Renumbered from T008 when merged: `main` had already assigned T008 to regional broadcast observations.
   - Evidence (as T008, before the merge): documentation contract tests: 4 passed; shell syntax and `git diff --check` passed; `RESULT: PASS`, exit 0; log: `.checks/logs/T008-20260929-194651.log`. The merge updated the API and OpenAPI watch-option docs, so it is re-verified under this ID.
-- [ ] T010: Add the approved proprietary root license naming the exact copyright holder, and verify third-party license notices remain intact.
+  - Latest evidence: documentation contract tests: 4 passed; shell syntax and `git diff --check` passed; `RESULT: PASS`, exit 0; log: `.checks/logs/T009-20261006-142741.log`.
+- [x] T010: Add the approved proprietary root license naming the exact copyright holder, and verify third-party license notices remain intact.
   - Verify: `./check.sh T010`
   - Renumbered from T009 when merged.
   - Inventory: Orbitron is the only bundled font found; its SIL Open Font License 1.1 notice is present and is checked unchanged.
   - Owner input 2026-10-06: copyright holder is `Trequa`.
+  - Latest evidence: root LICENSE names Trequa, is proprietary, reserves all rights and grants no license; Orbitron OFL 1.1 notice and font present and unchanged; `RESULT: PASS`, exit 0; log: `.checks/logs/T010-20261006-142740.log`.
