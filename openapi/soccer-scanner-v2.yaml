@@ -357,9 +357,27 @@ components:
         status: {type: object, additionalProperties: true}
         score: {type: object, nullable: true, additionalProperties: true}
         broadcasts: {type: array, items: {type: object, additionalProperties: true}}
-        whereToWatch: {type: array, items: {type: object, additionalProperties: true}}
+        whereToWatch:
+          type: array
+          description: Additive provider-reported and official-source TV and streaming options. Omitted by older payloads or when registry enrichment is disabled.
+          items: {$ref: '#/components/schemas/WatchOption'}
         broadcastCoverage: {$ref: '#/components/schemas/BroadcastCoverage'}
         streaming: {type: array, items: {type: object, additionalProperties: true}}
+    WatchOption:
+      type: object
+      required: [displayName, region, type, sourceId]
+      properties:
+        id: {type: string, nullable: true, description: Verified service ID; null for unrecognized provider names.}
+        displayName: {type: string}
+        officialUrl: {type: string, format: uri, nullable: true, description: Verified provider homepage; null when no registry match exists.}
+        logoPath: {type: string, nullable: true, description: Optional local icon path for a verified service.}
+        region: {type: string, description: Provider-reported region or `Region unknown`.}
+        regionKnown: {type: boolean, description: Present on options derived from provider broadcast data.}
+        type: {type: string, enum: [TV, STREAMING]}
+        source: {type: string, nullable: true, description: Data provider or official broadcaster behind the listing.}
+        sourceId: {type: string, description: 'Listing source, e.g. espn-broadcasts, official-competition-listings, uefa-where-to-watch, fifa-plus-live, concacaf-where-to-watch.'}
+        observedAt: {type: string, format: date-time, nullable: true}
+        status: {type: string, enum: [available, stale], description: Present on options added by the scheduled official-source refresh.}
     BroadcastSourceFreshness:
       type: object
       properties:

@@ -1,0 +1,15 @@
+Copyright (c) 2026 Trequa. All rights reserved.
+
+This repository, including the Soccer Radar website, API, iOS application, and
+all associated source code, documentation, designs and assets (together, the
+"Software"), is proprietary to Trequa.
+
+No license is granted to any person to use, copy, modify, merge, publish,
+distribute, sublicense or sell the Software, in whole or in part, except under
+a separate written agreement with Trequa. Access to this repository does not
+grant any right in the Software.
+
+Third-party components included in this repository remain subject to their own
+licenses, which this notice does not modify. In particular, the Orbitron font
+in clients/ios/Tools/fonts/ is licensed under the SIL Open Font License,
+Version 1.1; see clients/ios/Tools/fonts/OFL.txt.
