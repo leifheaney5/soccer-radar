@@ -23,12 +23,13 @@ if 'SIL OPEN FONT LICENSE Version 1.1' not in font_license:
     raise SystemExit('The Orbitron SIL Open Font License notice is missing.')
 if not (root / 'clients/ios/Tools/fonts/Orbitron-Variable.ttf').is_file():
     raise SystemExit('The licensed Orbitron font asset is missing.')
-original_font_license = subprocess.run(
-    ['git', 'show', 'HEAD:clients/ios/Tools/fonts/OFL.txt'],
-    check=True,
-    capture_output=True,
-).stdout
-if font_license_path.read_bytes() != original_font_license:
+# Ask git rather than comparing bytes: core.autocrlf checkouts (Windows) differ
+# from the committed blob only by line endings, which is not a licence change.
+font_license_diff = subprocess.run(
+    ['git', 'diff', '--quiet', 'HEAD', '--', 'clients/ios/Tools/fonts/OFL.txt'],
+    cwd=root,
+)
+if font_license_diff.returncode != 0:
     raise SystemExit('The Orbitron SIL Open Font License file was changed.')
 
 print(f'Root proprietary license names holder: {holder}')
