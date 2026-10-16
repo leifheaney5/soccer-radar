@@ -37,27 +37,6 @@ public struct FixtureDetailView: View {
                 bottom: Theme.Spacing.sm, trailing: Theme.Spacing.lg
             ))
 
-            if fixture.status.scoreAvailable {
-                Section {
-                    Button {
-                        scoresRevealed.toggle()
-                    } label: {
-                        Label(
-                            scoresRevealed
-                                ? String(localized: "Hide score")
-                                : String(localized: "Reveal score"),
-                            systemImage: scoresRevealed ? "eye.slash" : "eye"
-                        )
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Theme.Palette.accentPrimary)
-                    }
-                    .accessibilityIdentifier("detail-score-toggle")
-                } header: {
-                    sectionHeader(String(localized: "Spoiler control"))
-                }
-                .detailCardRows()
-            }
-
             Section {
                 LabeledContent(String(localized: "Kick-off"),
                                value: FixtureTime.kickoff(fixture.utcDate, in: timeZone))
@@ -201,18 +180,8 @@ public struct FixtureDetailView: View {
                 }
             }
 
-            if revealedScoreText == nil {
-                if fixture.status.scoreAvailable && fixture.hasFullTimeScore {
-                    Label(String(localized: "Score hidden"), systemImage: "eye.slash")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.Palette.textSecondary)
-                        .accessibilityIdentifier("detail-score-hidden")
-                } else if fixture.status.scoreAvailable {
-                    Label(String(localized: "Score unavailable"), systemImage: "questionmark.circle")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.Palette.textSecondary)
-                        .accessibilityIdentifier("detail-score-unavailable")
-                }
+            if fixture.status.scoreAvailable {
+                spoilerControl
             }
         }
         .padding(Theme.Spacing.md + 2)
@@ -222,6 +191,43 @@ public struct FixtureDetailView: View {
                 ? Theme.Palette.accentPrimary.opacity(0.55)
                 : Theme.Palette.borderColor
         )
+    }
+
+    /// Spoiler state and its control sit in the match card, so the details
+    /// below stay in view. A bordered style keeps the tap target to the button
+    /// itself, never the whole card.
+    private var spoilerControl: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.sm))
+        return layout {
+            if revealedScoreText == nil {
+                if fixture.hasFullTimeScore {
+                    Label(String(localized: "Score hidden"), systemImage: "eye.slash")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .accessibilityIdentifier("detail-score-hidden")
+                } else {
+                    Label(String(localized: "Score unavailable"), systemImage: "questionmark.circle")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .accessibilityIdentifier("detail-score-unavailable")
+                }
+            }
+            Spacer(minLength: Theme.Spacing.sm)
+            Button {
+                scoresRevealed.toggle()
+            } label: {
+                Label(
+                    scoresRevealed
+                        ? String(localized: "Hide score")
+                        : String(localized: "Reveal score"),
+                    systemImage: scoresRevealed ? "eye.slash" : "eye"
+                )
+            }
+            .buttonStyle(SurfaceButtonStyle())
+            .accessibilityIdentifier("detail-score-toggle")
+        }
     }
 
     /// The revealed score when the viewer opted in; otherwise the kickoff time.
