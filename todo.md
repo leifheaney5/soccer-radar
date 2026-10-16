@@ -53,3 +53,6 @@
   - Inventory: Orbitron is the only bundled font found; its SIL Open Font License 1.1 notice is present and is checked unchanged.
   - Owner input 2026-10-06: copyright holder is `Trequa`.
   - Latest evidence: root LICENSE names Trequa, is proprietary, reserves all rights and grants no license; Orbitron OFL 1.1 notice and font present and unchanged; `RESULT: PASS`, exit 0; log: `.checks/logs/T010-20261006-142740.log`.
+- [ ] T011: Revamp the native iOS UI to match the web dashboard: dark brand palette shared with `base.css`, Orbitron wordmark and radar mark, monospace data, crested fixture cards grouped by competition, day summary, and restyled detail, filter, and settings screens, without weakening the spoiler boundary or UI-test contracts.
+  - Verify: `./check.sh T011`
+  - Red before the change: `tests/test_ios_design_parity.py` → 5 failed against the previous iOS sources (no web palette, stock accent, no bundled brand font, no forced dark appearance).

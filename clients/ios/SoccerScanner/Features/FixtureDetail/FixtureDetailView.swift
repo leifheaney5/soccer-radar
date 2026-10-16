@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct FixtureDetailView: View {
     @AppStorage("soccer-radar:broadcast-region") private var broadcastRegion = "all"
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let fixture: Fixture
     let timeZone: TimeZone
     @Binding private var scoresRevealed: Bool
@@ -28,46 +29,15 @@ public struct FixtureDetailView: View {
     public var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    StatusBadge(status: fixture.status)
-                    Text("\(fixture.homeTeam.name) v \(fixture.awayTeam.name)")
-                        .font(.title3.weight(.semibold))
-                    if let scoreText = revealedScoreText {
-                        Text(scoreText)
-                            .font(.largeTitle.monospacedDigit())
-                            .accessibilityIdentifier("detail-score")
-                    } else if fixture.status.scoreAvailable && fixture.hasFullTimeScore {
-                        Label(String(localized: "Score hidden"), systemImage: "eye.slash")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("detail-score-hidden")
-                    } else if fixture.status.scoreAvailable {
-                        Label(String(localized: "Score unavailable"), systemImage: "questionmark")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("detail-score-unavailable")
-                    }
-                }
-                .padding(.vertical, Theme.Spacing.xs)
+                matchHero
             }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(
+                top: Theme.Spacing.sm, leading: Theme.Spacing.lg,
+                bottom: Theme.Spacing.sm, trailing: Theme.Spacing.lg
+            ))
 
-            if fixture.status.scoreAvailable {
-                Section(String(localized: "Spoiler control")) {
-                    Button {
-                        scoresRevealed.toggle()
-                    } label: {
-                        Label(
-                            scoresRevealed
-                                ? String(localized: "Hide score")
-                                : String(localized: "Reveal score"),
-                            systemImage: scoresRevealed ? "eye.slash" : "eye"
-                        )
-                    }
-                    .accessibilityIdentifier("detail-score-toggle")
-                }
-            }
-
-            Section(String(localized: "Match")) {
+            Section {
                 LabeledContent(String(localized: "Kick-off"),
                                value: FixtureTime.kickoff(fixture.utcDate, in: timeZone))
                 LabeledContent(String(localized: "Timezone"), value: timeZone.identifier)
@@ -84,37 +54,49 @@ public struct FixtureDetailView: View {
                     String(localized: "Venue"),
                     value: fixture.venue ?? String(localized: "Unavailable")
                 )
+            } header: {
+                sectionHeader(String(localized: "Match"))
             }
+            .detailCardRows()
 
-            Section(String(localized: "Where to watch")) {
+            Section {
                 Picker(String(localized: "Broadcast region"), selection: $broadcastRegion) {
                     Text(String(localized: "All regions")).tag("all")
                     ForEach(broadcastRegions, id: \.self) { region in
                         Text(region).tag(region)
                     }
                 }
+                .tint(Theme.Palette.accentPrimary)
                 .accessibilityIdentifier("broadcast-region")
                 .accessibilityValue(
                     broadcastRegion == "all"
                         ? String(localized: "All regions")
                         : broadcastRegion
                 )
+                // The caveat precedes the listings so it is read before them.
+                Text(String(localized: "Availability varies by region and subscription. Listings may be incomplete or out of date."))
+                    .font(.caption2)
+                    .foregroundStyle(Theme.Palette.textMuted)
                 if visibleWatchOptions.contains(where: { $0.status == "stale" }) {
                     Text(String(localized: "Broadcast listings may be out of date."))
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.warning)
                 }
                 if visibleWatchOptions.isEmpty {
                     Text(emptyBroadcastMessage)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textSecondary)
                 } else {
                     ForEach(Array(visibleWatchOptions.enumerated()), id: \.offset) { index, option in
                         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                             if let url = option.officialLinkURL {
                                 Link(option.displayName, destination: url)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(Theme.Palette.accentPrimary)
                             } else {
                                 Text(option.displayName)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(Theme.Palette.textPrimary)
                             }
                             HStack {
                                 Text(option.categoryLabel)
@@ -123,19 +105,19 @@ public struct FixtureDetailView: View {
                                 // the provider did not supply one.
                                 Text(option.regionLabel)
                             }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(Theme.Typography.data(.caption))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                         }
                         .accessibilityIdentifier("detail-broadcast-\(fixture.id)-\(index)")
                     }
                 }
-                Text(String(localized: "Availability varies by region and subscription. Listings may be incomplete or out of date."))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            } header: {
+                sectionHeader(String(localized: "Where to watch"))
             }
+            .detailCardRows()
 
             if !providers.isEmpty || freshness != nil {
-                Section(String(localized: "Data quality")) {
+                Section {
                     ForEach(providers, id: \.name) { provider in
                         LabeledContent(
                             provider.name ?? String(localized: "Provider unavailable"),
@@ -150,13 +132,122 @@ public struct FixtureDetailView: View {
                     }
                     Text(String(localized: "Provider coverage and update age describe this response, not a guarantee that every fixture is complete."))
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textMuted)
+                } header: {
+                    sectionHeader(String(localized: "Source and freshness"))
                 }
+                .detailCardRows()
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Theme.Palette.bgPrimary.ignoresSafeArea())
         .navigationTitle(String(localized: "Match details"))
         .navigationBarTitleDisplayMode(.inline)
+        .themedNavigationBar()
         .accessibilityIdentifier("fixture-detail")
+    }
+
+    /// The web "Match context" panel as a compact scoreboard: competition and
+    /// status, the fixture title, then both crests around the kickoff time (or
+    /// the score the viewer chose to reveal). Kept short so the details below
+    /// stay in view.
+    private var matchHero: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
+                Text(fixture.competition?.displayName ?? String(localized: "Match"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .lineLimit(1)
+                Spacer(minLength: Theme.Spacing.sm)
+                StatusBadge(status: fixture.status)
+            }
+
+            Text("\(fixture.homeTeam.name) v \(fixture.awayTeam.name)")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if dynamicTypeSize.isAccessibilitySize {
+                centreLine
+            } else {
+                // Scoreboard: crests in title order around the kickoff time.
+                HStack(alignment: .center, spacing: Theme.Spacing.sm) {
+                    TeamCrest(url: fixture.homeTeam.crest, size: 40)
+                    centreLine
+                        .frame(maxWidth: .infinity)
+                    TeamCrest(url: fixture.awayTeam.crest, size: 40)
+                }
+            }
+
+            if fixture.status.scoreAvailable {
+                spoilerControl
+            }
+        }
+        .padding(Theme.Spacing.md + 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(
+            border: fixture.status.isActive
+                ? Theme.Palette.accentPrimary.opacity(0.55)
+                : Theme.Palette.borderColor
+        )
+    }
+
+    /// Spoiler state and its control sit in the match card, so the details
+    /// below stay in view. A bordered style keeps the tap target to the button
+    /// itself, never the whole card.
+    private var spoilerControl: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.sm))
+        return layout {
+            if revealedScoreText == nil {
+                if fixture.hasFullTimeScore {
+                    Label(String(localized: "Score hidden"), systemImage: "eye.slash")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .accessibilityIdentifier("detail-score-hidden")
+                } else {
+                    Label(String(localized: "Score unavailable"), systemImage: "questionmark.circle")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .accessibilityIdentifier("detail-score-unavailable")
+                }
+            }
+            Spacer(minLength: Theme.Spacing.sm)
+            Button {
+                scoresRevealed.toggle()
+            } label: {
+                Label(
+                    scoresRevealed
+                        ? String(localized: "Hide score")
+                        : String(localized: "Reveal score"),
+                    systemImage: scoresRevealed ? "eye.slash" : "eye"
+                )
+            }
+            .buttonStyle(SurfaceButtonStyle())
+            .accessibilityIdentifier("detail-score-toggle")
+        }
+    }
+
+    /// The revealed score when the viewer opted in; otherwise the kickoff time.
+    @ViewBuilder
+    private var centreLine: some View {
+        if let scoreText = revealedScoreText {
+            Text(scoreText)
+                .font(Theme.Typography.data(.title, weight: .bold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .accessibilityIdentifier("detail-score")
+        } else {
+            Text(FixtureTime.kickoff(fixture.utcDate, in: timeZone))
+                .font(Theme.Typography.data(.title3, weight: .medium))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .monospacedDigit()
+        }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title).sectionLabelStyle()
     }
 
     private var broadcastRegions: [String] {
@@ -210,5 +301,11 @@ public struct FixtureDetailView: View {
               let home = fixture.score?.fullTime?.home,
               let away = fixture.score?.fullTime?.away else { return nil }
         return "\(home) – \(away)"
+    }
+}
+
+private extension View {
+    func detailCardRows() -> some View {
+        listRowBackground(Theme.Palette.bgCard)
     }
 }
