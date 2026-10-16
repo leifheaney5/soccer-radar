@@ -5,6 +5,13 @@ import Observation
 struct SoccerScannerApp: App {
     @State private var container = AppContainer()
 
+    init() {
+        // UIKit appearance proxies must be configured before the first view.
+        MainActor.assumeIsolated {
+            Theme.applyAppearance()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             FixtureListView(
@@ -13,6 +20,10 @@ struct SoccerScannerApp: App {
                 client: container.client,
                 environment: container.environment
             )
+                // The website is dark-only; the app matches it in every
+                // system appearance.
+                .preferredColorScheme(.dark)
+                .tint(Theme.Palette.accentPrimary)
                 .onOpenURL { url in
                     container.handle(url)
                 }

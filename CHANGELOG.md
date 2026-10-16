@@ -34,6 +34,12 @@
 
 ### Changed
 
+- Redesigned the native iOS app to match the website: fixed dark appearance with
+  the web colour tokens (checked against `static/css/base.css` by
+  `tests/test_ios_design_parity.py`), the Orbitron wordmark and radar mark,
+  monospace times and counts, a day summary line, crested fixture cards
+  grouped by competition, and matching match-detail, filter, and settings
+  screens. Scores stay hidden until revealed.
 - Rebranded the web and native client as Soccer Radar, made
   `soccer-radar.com` canonical, and preserved old-domain routes and Universal
   Links.

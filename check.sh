@@ -95,6 +95,7 @@ run_task() {
                 command="LICENSE_HOLDER=Trequa $python_cmd tests/verify_license_provenance.py"
             fi
             ;;
+        T011) command="PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $python_cmd -m pytest tests/test_ios_design_parity.py tests/test_ios_release_assets.py -q && sha=\$(git rev-parse HEAD) && gh run list --commit \"\$sha\" --json workflowName,status,conclusion,headSha | SHA=\"\$sha\" $python_cmd -c 'import json,os,sys; runs=json.load(sys.stdin); sha=os.environ[\"SHA\"]; required={\"CI\",\"iOS\"}; good={r[\"workflowName\"] for r in runs if r[\"headSha\"]==sha and r[\"status\"]==\"completed\" and r[\"conclusion\"]==\"success\"}; missing=required-good; print(\"Exact-SHA hosted workflows for \"+sha+\": \"+(\", \".join(sorted(required-missing)) or \"none\")); sys.exit(bool(missing))'" ;;
         *) printf 'Unknown task ID: %s\n' "$id" >&2; return 2 ;;
     esac
 
@@ -110,7 +111,7 @@ run_task() {
 
 if [[ "$task_id" == "all" ]]; then
     result=0
-    for id in T001 T002 T003 T004 T005 T006 T007 T008 T009 T010; do
+    for id in T001 T002 T003 T004 T005 T006 T007 T008 T009 T010 T011; do
         if ! run_task "$id"; then result=1; fi
     done
     exit "$result"

@@ -28,13 +28,21 @@ targets:
     platform: iOS
     sources:
       - path: SoccerScanner
+      # Orbitron is the web wordmark face; its SIL OFL notice ships with it.
+      - path: Tools/fonts/Orbitron-Variable.ttf
+        buildPhase: resources
+      - path: Tools/fonts/OFL.txt
+        buildPhase: resources
     info:
       path: SoccerScanner/Info.plist
       properties:
         CFBundleDisplayName: Soccer Radar
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIAppFonts:
+          - Orbitron-Variable.ttf
         ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

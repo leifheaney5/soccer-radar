@@ -258,7 +258,7 @@ public final class FixtureListViewModel {
     public var filteredFixtures: [Fixture] {
         let normalizedSearch = Self.normalizedSearch(filter.searchText)
         let filtered = sourceFixtures.filter { fixture in
-            guard Self.matches(status: fixture.status, filter: filter.status) else { return false }
+            guard filter.status.includes(fixture.status) else { return false }
             guard !filter.hideFinished || fixture.status != .finished else { return false }
             guard Self.matches(
                 fixture.competition?.name,
@@ -626,17 +626,6 @@ public final class FixtureListViewModel {
         if let country = filter.country,
            !countries.contains(Self.normalizedSearch(country)) {
             filter.country = nil
-        }
-    }
-
-    private static func matches(status: MatchStatus, filter: FixtureStatusFilter) -> Bool {
-        switch filter {
-        case .all: return true
-        case .live: return status.isActive
-        case .upcoming:
-            return !status.isActive && !status.isTerminal
-                && [.scheduled, .delayed, .unknown].contains(status)
-        case .finished: return status == .finished
         }
     }
 

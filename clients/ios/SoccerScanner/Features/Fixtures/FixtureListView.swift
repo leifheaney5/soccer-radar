@@ -38,9 +38,12 @@ public struct FixtureListView: View {
                     routeOperationalFailureNotice
                 }
                 content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+                .background(Theme.Palette.bgPrimary.ignoresSafeArea())
                 .navigationTitle(String(localized: "Fixtures"))
                 .navigationBarTitleDisplayMode(.inline)
+                .themedNavigationBar()
                 .toolbar { toolbarContent }
                 .navigationDestination(item: $selectedFixture) { fixture in
                     FixtureDetailView(
@@ -84,6 +87,7 @@ public struct FixtureListView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(Theme.Palette.bgSecondary)
         }
         .searchable(
             text: Binding(
@@ -91,25 +95,30 @@ public struct FixtureListView: View {
                 set: { model.setSearchText($0) }
             ),
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search fixtures"
+            prompt: "Search teams or competitions"
         )
         .accessibilityIdentifier("fixture-search")
     }
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            BrandLockup()
+        }
         ToolbarItem(placement: .topBarTrailing) {
-            HStack {
+            HStack(spacing: Theme.Spacing.sm) {
                 Button {
                     model.toggleScores()
                 } label: {
-                    Label(
-                        model.scoresRevealed
+                    ToolbarIcon(
+                        title: model.scoresRevealed
                             ? String(localized: "Hide scores")
                             : String(localized: "Reveal scores"),
-                        systemImage: model.scoresRevealed ? "eye.slash" : "eye"
+                        systemImage: model.scoresRevealed ? "eye" : "eye.slash",
+                        active: model.scoresRevealed
                     )
                 }
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("score-toggle")
 
                 NavigationLink {
@@ -118,8 +127,9 @@ public struct FixtureListView: View {
                         timeZone: model.selectedTimeZone
                     )
                 } label: {
-                    Label(String(localized: "Settings"), systemImage: "gearshape")
+                    ToolbarIcon(title: String(localized: "Settings"), systemImage: "gearshape")
                 }
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("settings-link")
             }
         }
@@ -140,39 +150,103 @@ public struct FixtureListView: View {
     }
 
     private var fixtureControlContent: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    dayNavigationButtons
-                    datePicker
-                    Spacer(minLength: 0)
-                    timeZoneMenu
-                }
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            // At accessibility sizes the day controls come first so they stay
+            // on screen; the summary header would push them out of view.
+            if !dynamicTypeSize.isAccessibilitySize {
+                pageHeader
+            }
+            VStack(spacing: Theme.Spacing.sm) {
+                ViewThatFits(in: .horizontal) {
                     HStack(spacing: Theme.Spacing.sm) {
                         dayNavigationButtons
                         datePicker
+                        Spacer(minLength: 0)
+                        timeZoneMenu
                     }
-                    timeZoneMenu
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        HStack(spacing: Theme.Spacing.sm) {
+                            dayNavigationButtons
+                            datePicker
+                        }
+                        timeZoneMenu
+                    }
                 }
+                if dynamicTypeSize.isAccessibilitySize {
+                    selectedDayText
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                statusFilter
+                advancedFilterButton
             }
-            Text(FixtureTime.dayHeading(for: model.day, in: model.selectedTimeZone))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(String(localized: "Selected fixture day"))
-                .accessibilityValue(model.day)
-                .accessibilityIdentifier("selected-day")
-            statusFilter
-            advancedFilterButton
+            .padding(Theme.Spacing.md)
+            .cardSurface(fill: Theme.Palette.bgSecondary)
         }
         .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.vertical, Theme.Spacing.sm)
+        .padding(.top, Theme.Spacing.sm)
+        .padding(.bottom, Theme.Spacing.md)
+    }
+
+    /// The web dashboard's page header: title, selected day, and day summary.
+    private var pageHeader: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(String(localized: "Fixtures"))
+                .font(.title.weight(.bold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            selectedDayText
+            if let summary = daySummary {
+                summaryLine(summary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var selectedDayText: some View {
+        Text(FixtureTime.dayHeading(for: model.day, in: model.selectedTimeZone))
+            .font(Theme.Typography.data(.footnote))
+            .foregroundStyle(Theme.Palette.textSecondary)
+            .accessibilityLabel(String(localized: "Selected fixture day"))
+            .accessibilityValue(model.day)
+            .accessibilityIdentifier("selected-day")
+    }
+
+    private var daySummary: FixtureDaySummary? {
+        switch model.state {
+        case .loaded(let data), .partial(let data, _), .stale(let data):
+            return FixtureDaySummary(fixtures: data.fixtures)
+        case .idle, .loading, .empty, .failed:
+            return nil
+        }
+    }
+
+    private func summaryLine(_ summary: FixtureDaySummary) -> some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Text(summary.matchesLabel)
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.Palette.textPrimary)
+            Text(String(localized: "\(summary.live) live"))
+                .foregroundStyle(summary.live > 0 ? Theme.Palette.accentPrimary : Theme.Palette.textMuted)
+            Text(String(localized: "\(summary.upcoming) upcoming"))
+                .foregroundStyle(Theme.Palette.textSecondary)
+            Text(String(localized: "\(summary.finished) finished"))
+                .foregroundStyle(Theme.Palette.textSecondary)
+        }
+        .font(Theme.Typography.data(.caption))
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(summary.accessibilityLabel)
+        .accessibilityIdentifier("fixtures-summary")
     }
 
     @ViewBuilder
     private var statusFilter: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            statusPicker.pickerStyle(.menu)
+            statusPicker
+                .pickerStyle(.menu)
+                .tint(Theme.Palette.accentPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             statusPicker.pickerStyle(.segmented)
         }
@@ -202,12 +276,23 @@ public struct FixtureListView: View {
                 Label(String(localized: "Advanced filters"), systemImage: "slider.horizontal.3")
                 Spacer(minLength: 0)
                 Text(String(model.activeFilterCount))
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Typography.data(.caption, weight: .bold))
+                    .foregroundStyle(
+                        model.activeFilterCount > 0 ? Theme.Palette.bgPrimary : Theme.Palette.textMuted
+                    )
+                    .frame(minWidth: 22, minHeight: 22)
+                    .background(
+                        Circle().fill(
+                            model.activeFilterCount > 0
+                                ? Theme.Palette.accentPrimary
+                                : Theme.Palette.bgTertiary
+                        )
+                    )
                     .accessibilityIdentifier("advanced-filter-count")
             }
+            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(SurfaceButtonStyle())
         .accessibilityLabel(String(localized: "Advanced filters"))
         .accessibilityValue(String(localized: "\(model.activeFilterCount) active filters"))
         .accessibilityIdentifier("advanced-filter-button")
@@ -225,8 +310,7 @@ public struct FixtureListView: View {
             }
             .font(.footnote)
         }
-        .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.bottom, Theme.Spacing.sm)
+        .noticeSurface(Theme.Palette.warning)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fixture-unavailable")
     }
@@ -243,8 +327,7 @@ public struct FixtureListView: View {
             }
             .font(.footnote)
         }
-        .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.bottom, Theme.Spacing.sm)
+        .noticeSurface(Theme.Palette.danger)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fixture-route-error")
     }
@@ -272,7 +355,7 @@ public struct FixtureListView: View {
             .accessibilityLabel(String(localized: "Next day"))
             .accessibilityIdentifier("next-day")
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(SurfaceButtonStyle())
     }
 
     private var datePicker: some View {
@@ -291,6 +374,7 @@ public struct FixtureListView: View {
             displayedComponents: .date
         )
         .labelsHidden()
+        .tint(Theme.Palette.accentPrimary)
         .environment(\.timeZone, model.selectedTimeZone)
         .accessibilityLabel(String(localized: "Select fixture date"))
         .accessibilityValue(model.day)
@@ -320,6 +404,12 @@ public struct FixtureListView: View {
             }
         } label: {
             Label(FixtureTime.zoneLabel(model.selectedTimeZone), systemImage: "globe")
+                .font(Theme.Typography.data(.caption, weight: .semibold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .lineLimit(1)
+                .padding(.horizontal, Theme.Spacing.md)
+                .frame(minHeight: Theme.minimumTapTarget)
+                .cardSurface(fill: Theme.Palette.bgSecondary, radius: Theme.Radius.control)
         }
         .accessibilityLabel(FixtureTime.accessibleZoneName(model.selectedTimeZone))
         .accessibilityValue(model.selectedTimeZone.identifier)
@@ -392,8 +482,13 @@ public struct FixtureListView: View {
     private var content: some View {
         switch model.state {
         case .idle, .loading:
-            ProgressView(String(localized: "Loading fixtures"))
-                .accessibilityIdentifier("fixtures-loading")
+            ProgressView {
+                Text(String(localized: "Loading fixtures"))
+                    .font(Theme.Typography.data(.footnote))
+                    .foregroundStyle(Theme.Palette.textSecondary)
+            }
+            .tint(Theme.Palette.accentPrimary)
+            .accessibilityIdentifier("fixtures-loading")
         case .loaded(let data):
             fixtureList(data, notice: model.notice(model.loadErrorNotice))
         case .stale(let data):
@@ -418,45 +513,66 @@ public struct FixtureListView: View {
                 Section {
                     Label(notice, systemImage: "exclamationmark.triangle")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(Theme.Spacing.md)
+                        .cardSurface(
+                            fill: Theme.Palette.warning.opacity(0.12),
+                            border: Theme.Palette.warning.opacity(0.6)
+                        )
                         .accessibilityIdentifier("fixtures-notice")
                 }
+                .themedListRows()
             }
-            Section(FixtureTime.dayHeading(for: data.day, in: model.selectedTimeZone)) {
-                if model.filteredFixtures.isEmpty {
+            if model.filteredFixtures.isEmpty {
+                Section {
                     ContentUnavailableView(
                         String(localized: "No matching fixtures"),
                         systemImage: "line.3.horizontal.decrease.circle",
                         description: Text(String(localized: "No matches match your filters."))
                     )
                     .accessibilityIdentifier("fixtures-filtered-empty")
-                } else {
-                    ForEach(model.filteredFixtures) { fixture in
-                        Button {
-                            selectedFixture = fixture
-                        } label: {
-                            FixtureRow(
-                                fixture: fixture,
-                                timeZone: model.selectedTimeZone,
-                                scoreText: model.scoreText(for: fixture)
-                            )
+                }
+                .themedListRows()
+            } else {
+                ForEach(FixtureGrouping.byCompetition(model.filteredFixtures)) { group in
+                    Section {
+                        ForEach(group.fixtures) { fixture in
+                            fixtureButton(fixture)
                         }
-                        .buttonStyle(.plain)
-                        // The identifier belongs on the control, not its label:
-                        // the Button is the element that is queried and tapped.
-                        .accessibilityLabel(
-                            "\(fixture.homeTeam.name) versus \(fixture.awayTeam.name), "
-                                + "\(fixture.status.label), "
-                                + "\(FixtureTime.kickoff(fixture.utcDate, in: model.selectedTimeZone))"
-                        )
-                        .accessibilityIdentifier("fixture-row-\(fixture.id)")
+                    } header: {
+                        CompetitionHeader(group: group)
                     }
+                    .themedListRows()
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Theme.Palette.bgPrimary)
         .refreshable { await model.load() }
         .accessibilityIdentifier("fixtures-list")
+    }
+
+    private func fixtureButton(_ fixture: Fixture) -> some View {
+        Button {
+            selectedFixture = fixture
+        } label: {
+            FixtureRow(
+                fixture: fixture,
+                timeZone: model.selectedTimeZone,
+                scoreText: model.scoreText(for: fixture)
+            )
+        }
+        .buttonStyle(.plain)
+        // The identifier belongs on the control, not its label:
+        // the Button is the element that is queried and tapped.
+        .accessibilityLabel(
+            "\(fixture.homeTeam.name) versus \(fixture.awayTeam.name), "
+                + "\(fixture.status.label), "
+                + "\(FixtureTime.kickoff(fixture.utcDate, in: model.selectedTimeZone))"
+        )
+        .accessibilityIdentifier("fixture-row-\(fixture.id)")
     }
 
     private func errorView(_ error: APIError) -> some View {
@@ -469,6 +585,7 @@ public struct FixtureListView: View {
                 Button(String(localized: "Try again")) {
                     Task { await model.load() }
                 }
+                .buttonStyle(SurfaceButtonStyle(prominent: true))
                 .accessibilityIdentifier("fixtures-retry")
             }
         }
@@ -476,6 +593,78 @@ public struct FixtureListView: View {
         // identifier is not queryable by assistive technology or UI tests.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fixtures-error")
+    }
+}
+
+/// The web header's square icon buttons; the title stays in the accessibility
+/// tree while only the icon is drawn.
+private struct ToolbarIcon: View {
+    let title: String
+    let systemImage: String
+    var active = false
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .labelStyle(.iconOnly)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(active ? Theme.Palette.accentPrimary : Theme.Palette.textPrimary)
+            .frame(width: 38, height: 38)
+            .cardSurface(
+                fill: Theme.Palette.bgSecondary,
+                border: active ? Theme.Palette.accentPrimary : Theme.Palette.borderColor,
+                radius: Theme.Radius.control
+            )
+            .contentShape(Rectangle())
+    }
+}
+
+/// Competition group heading, as on the web match schedule.
+private struct CompetitionHeader: View {
+    let group: FixtureCompetitionGroup
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
+            Text(group.title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: Theme.Spacing.sm)
+            Text(group.countLabel)
+                .font(Theme.Typography.data(.caption2))
+                .foregroundStyle(Theme.Palette.textMuted)
+        }
+        .textCase(nil)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.top, Theme.Spacing.md)
+        .padding(.bottom, Theme.Spacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Palette.bgPrimary)
+        .listRowInsets(EdgeInsets())
+    }
+}
+
+private extension View {
+    /// Rows draw their own card, so the list contributes no chrome of its own.
+    func themedListRows() -> some View {
+        self
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listSectionSeparator(.hidden)
+            .listRowInsets(EdgeInsets(
+                top: Theme.Spacing.xs + 2,
+                leading: Theme.Spacing.lg,
+                bottom: Theme.Spacing.xs + 2,
+                trailing: Theme.Spacing.lg
+            ))
+    }
+
+    func noticeSurface(_ tint: Color) -> some View {
+        self
+            .foregroundStyle(Theme.Palette.textPrimary)
+            .padding(Theme.Spacing.md)
+            .cardSurface(fill: tint.opacity(0.12), border: tint.opacity(0.6))
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.bottom, Theme.Spacing.sm)
     }
 }
 
@@ -490,54 +679,68 @@ private struct AdvancedFixtureFilterSheet: View {
         NavigationStack {
             VStack(spacing: 0) {
                 ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                    Picker(
-                        String(localized: "Competition"),
-                        selection: Binding(
-                            get: { filter.competition ?? "" },
-                            set: { filter.competition = $0.isEmpty ? nil : $0 }
-                        )
-                    ) {
-                        Text(String(localized: "All competitions")).tag("")
-                        ForEach(competitionOptions, id: \.self) { option in
-                            Text(option).tag(option)
+                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    FilterField(title: String(localized: "Competition")) {
+                        Picker(
+                            String(localized: "Competition"),
+                            selection: Binding(
+                                get: { filter.competition ?? "" },
+                                set: { filter.competition = $0.isEmpty ? nil : $0 }
+                            )
+                        ) {
+                            Text(String(localized: "All competitions")).tag("")
+                            ForEach(competitionOptions, id: \.self) { option in
+                                Text(option).tag(option)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("advanced-competition")
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("advanced-competition")
 
-                    Picker(
-                        String(localized: "Country or area"),
-                        selection: Binding(
-                            get: { filter.country ?? "" },
-                            set: { filter.country = $0.isEmpty ? nil : $0 }
-                        )
-                    ) {
-                        Text(String(localized: "All countries or areas")).tag("")
-                        ForEach(countryOptions, id: \.self) { option in
-                            Text(option).tag(option)
+                    FilterField(title: String(localized: "Country or area")) {
+                        Picker(
+                            String(localized: "Country or area"),
+                            selection: Binding(
+                                get: { filter.country ?? "" },
+                                set: { filter.country = $0.isEmpty ? nil : $0 }
+                            )
+                        ) {
+                            Text(String(localized: "All countries or areas")).tag("")
+                            ForEach(countryOptions, id: \.self) { option in
+                                Text(option).tag(option)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("advanced-country")
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("advanced-country")
 
-                    Picker(String(localized: "Time window"), selection: $filter.timeWindow) {
-                        ForEach(FixtureTimeWindow.allCases, id: \.self) { window in
-                            Text(window.label).tag(window)
+                    FilterField(title: String(localized: "Time window")) {
+                        Picker(String(localized: "Time window"), selection: $filter.timeWindow) {
+                            ForEach(FixtureTimeWindow.allCases, id: \.self) { window in
+                                Text(window.label).tag(window)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("advanced-time-window")
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("advanced-time-window")
 
-                    Picker(String(localized: "Sort fixtures"), selection: $filter.sort) {
-                        ForEach(FixtureSort.allCases, id: \.self) { sort in
-                            Text(sort.label).tag(sort)
+                    FilterField(title: String(localized: "Sort")) {
+                        Picker(String(localized: "Sort fixtures"), selection: $filter.sort) {
+                            ForEach(FixtureSort.allCases, id: \.self) { sort in
+                                Text(sort.label).tag(sort)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("advanced-sort")
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("advanced-sort")
 
                     Toggle(String(localized: "Hide finished fixtures"), isOn: $filter.hideFinished)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                        .tint(Theme.Palette.accentPrimary)
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .frame(minHeight: Theme.minimumTapTarget)
+                        .cardSurface(fill: Theme.Palette.bgCard, radius: Theme.Radius.control)
                         .accessibilityIdentifier("advanced-hide-finished")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -550,8 +753,10 @@ private struct AdvancedFixtureFilterSheet: View {
 
                 actionBar
             }
-            .navigationTitle(String(localized: "Advanced filters"))
+            .background(Theme.Palette.bgSecondary.ignoresSafeArea())
+            .navigationTitle(String(localized: "Filter fixtures"))
             .navigationBarTitleDisplayMode(.inline)
+            .themedNavigationBar(Theme.Palette.bgSecondary)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("advanced-filter-sheet")
         }
@@ -572,6 +777,7 @@ private struct AdvancedFixtureFilterSheet: View {
             Button(String(localized: "Reset")) {
                 filter.resetAdvanced()
             }
+            .buttonStyle(SurfaceButtonStyle())
             .accessibilityIdentifier("advanced-filter-reset")
 
             Spacer(minLength: Theme.Spacing.sm)
@@ -579,19 +785,43 @@ private struct AdvancedFixtureFilterSheet: View {
             Button(String(localized: "Close")) {
                 dismiss()
             }
+            .buttonStyle(SurfaceButtonStyle())
             .accessibilityIdentifier("advanced-filter-close")
 
-            Button(String(localized: "Apply")) {
+            Button(String(localized: "Apply filters")) {
                 onApply(filter)
                 dismiss()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(SurfaceButtonStyle(prominent: true))
             .accessibilityIdentifier("advanced-filter-apply")
         }
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.sm)
-        .background(.bar)
+        .background(Theme.Palette.bgSecondary)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Theme.Palette.borderColor).frame(height: 1)
+        }
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// A labelled select, styled like the web filter panel's fields.
+private struct FilterField<Control: View>: View {
+    let title: String
+    @ViewBuilder let control: Control
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Theme.Palette.textMuted)
+                .accessibilityHidden(true)
+            control
+                .tint(Theme.Palette.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: Theme.minimumTapTarget, alignment: .leading)
+                .padding(.horizontal, Theme.Spacing.xs)
+                .cardSurface(fill: Theme.Palette.bgCard, radius: Theme.Radius.control)
+        }
     }
 }
 
@@ -609,36 +839,76 @@ struct FixtureRow: View {
                 normalLayout
             }
         }
-        .padding(.vertical, Theme.Spacing.xs)
-        .frame(minHeight: Theme.minimumTapTarget)
+        .padding(Theme.Spacing.md + 2)
+        .frame(maxWidth: .infinity, minHeight: Theme.minimumTapTarget, alignment: .leading)
+        .cardSurface(
+            border: fixture.status.isActive
+                ? Theme.Palette.accentPrimary.opacity(0.55)
+                : Theme.Palette.borderColor
+        )
         .contentShape(Rectangle())
     }
 
+    /// Web fixture card: status and kickoff, the score slot, crested team
+    /// lines, then competition, venue, and a details affordance.
     private var normalLayout: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.md) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            HStack(alignment: .center, spacing: Theme.Spacing.sm) {
                 StatusBadge(status: fixture.status)
                 Text(FixtureTime.kickoff(fixture.utcDate, in: timeZone))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Typography.data(.caption))
+                    .foregroundStyle(Theme.Palette.textSecondary)
                     .monospacedDigit()
+                Spacer(minLength: Theme.Spacing.sm)
+                scoreIndicator
             }
-            .frame(width: 92, alignment: .leading)
 
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text(fixture.homeTeam.name).font(.body)
-                Text(fixture.awayTeam.name).font(.body)
-                if let competition = fixture.competition?.displayName {
-                    Text(competition)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                teamLine(fixture.homeTeam)
+                teamLine(fixture.awayTeam)
+            }
+
+            HStack(alignment: .bottom, spacing: Theme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let competition = fixture.competition?.displayName {
+                        Text(competition)
+                    }
+                    if let venue = fixture.venue, !venue.isEmpty {
+                        Text(venue)
+                    }
                 }
+                .font(.caption)
+                .foregroundStyle(Theme.Palette.textMuted)
+                .lineLimit(1)
+                Spacer(minLength: Theme.Spacing.sm)
+                detailsAffordance
             }
-
-            Spacer(minLength: Theme.Spacing.sm)
-
-            scoreIndicator
         }
+    }
+
+    private func teamLine(_ team: Team) -> some View {
+        HStack(spacing: Theme.Spacing.sm + 2) {
+            TeamCrest(url: team.crest, size: 30)
+            Text(team.name)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .lineLimit(2)
+        }
+    }
+
+    private var detailsAffordance: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            Text(String(localized: "Details"))
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.bold))
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(Theme.Palette.textSecondary)
+        .padding(.horizontal, Theme.Spacing.sm + 2)
+        .padding(.vertical, Theme.Spacing.xs + 2)
+        .cardSurface(fill: Theme.Palette.bgSecondary, radius: Theme.Radius.control)
+        // The whole card is the control; this is a visual cue only.
+        .accessibilityHidden(true)
     }
 
     private var accessibilityLayout: some View {
@@ -647,8 +917,8 @@ struct FixtureRow: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     StatusBadge(status: fixture.status)
                     Text(FixtureTime.kickoff(fixture.utcDate, in: timeZone))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Theme.Typography.data(.caption))
+                        .foregroundStyle(Theme.Palette.textSecondary)
                         .monospacedDigit()
                 }
                 Spacer(minLength: Theme.Spacing.sm)
@@ -663,11 +933,13 @@ struct FixtureRow: View {
     private var accessibilityTeamNames: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(fixture.homeTeam.name)
-                .font(.body)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Theme.Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("fixture-home-team-\(fixture.id)")
             Text(fixture.awayTeam.name)
-                .font(.body)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Theme.Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("fixture-away-team-\(fixture.id)")
         }
@@ -678,8 +950,8 @@ struct FixtureRow: View {
     private var competitionName: some View {
         if let competition = fixture.competition?.displayName {
             Text(competition)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.caption)
+                .foregroundStyle(Theme.Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("fixture-competition-\(fixture.id)")
         }
@@ -689,40 +961,32 @@ struct FixtureRow: View {
     private var scoreIndicator: some View {
         if let scoreText {
             Text(scoreText)
-                .font(.headline.monospacedDigit())
+                .font(Theme.Typography.data(.title3, weight: .bold))
+                .foregroundStyle(Theme.Palette.textPrimary)
                 .fixedSize(horizontal: true, vertical: false)
                 .accessibilityIdentifier("fixture-score")
         } else if fixture.status.scoreAvailable && fixture.hasFullTimeScore {
             // A score exists but is deliberately concealed.
-            Image(systemName: "eye.slash")
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(String(localized: "Score hidden"))
+            scorePill(String(localized: "Score hidden"), systemImage: "eye.slash")
                 .accessibilityIdentifier("fixture-score-hidden")
         } else if fixture.status.scoreAvailable {
-            Image(systemName: "questionmark")
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(String(localized: "Score unavailable"))
+            scorePill(String(localized: "Score unavailable"), systemImage: "questionmark.circle")
                 .accessibilityIdentifier("fixture-score-unavailable")
         }
     }
 
-    private var accessibilitySummary: String {
-        var parts = [
-            String(localized: "\(fixture.homeTeam.name) versus \(fixture.awayTeam.name)"),
-            fixture.status.label,
-            FixtureTime.kickoff(fixture.utcDate, in: timeZone),
-        ]
-        if let competition = fixture.competition?.displayName {
-            parts.append(competition)
+    private func scorePill(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            Image(systemName: systemImage)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Text(title)
+            }
         }
-        if let scoreText {
-            parts.append(String(localized: "Score \(scoreText)"))
-        } else if fixture.status.scoreAvailable && fixture.hasFullTimeScore {
-            parts.append(String(localized: "Score hidden"))
-        } else if fixture.status.scoreAvailable {
-            parts.append(String(localized: "Score unavailable"))
-        }
-        return parts.joined(separator: ", ")
+        .font(.caption)
+        .foregroundStyle(Theme.Palette.textSecondary)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
     }
 }
 
