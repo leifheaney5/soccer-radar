@@ -94,6 +94,10 @@ public struct FixtureDetailView: View {
                         ? String(localized: "All regions")
                         : broadcastRegion
                 )
+                // The caveat precedes the listings so it is read before them.
+                Text(String(localized: "Availability varies by region and subscription. Listings may be incomplete or out of date."))
+                    .font(.caption2)
+                    .foregroundStyle(Theme.Palette.textMuted)
                 if visibleWatchOptions.contains(where: { $0.status == "stale" }) {
                     Text(String(localized: "Broadcast listings may be out of date."))
                         .font(.footnote)
@@ -128,9 +132,6 @@ public struct FixtureDetailView: View {
                         .accessibilityIdentifier("detail-broadcast-\(fixture.id)-\(index)")
                     }
                 }
-                Text(String(localized: "Availability varies by region and subscription. Listings may be incomplete or out of date."))
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Palette.textMuted)
             } header: {
                 sectionHeader(String(localized: "Where to watch"))
             }
@@ -169,8 +170,9 @@ public struct FixtureDetailView: View {
     }
 
     /// The web "Match context" panel as a compact scoreboard: competition and
-    /// status, then both crested teams around the kickoff time (or the score
-    /// the viewer chose to reveal). Kept short so the details below stay in view.
+    /// status, the fixture title, then both crests around the kickoff time (or
+    /// the score the viewer chose to reveal). Kept short so the details below
+    /// stay in view.
     private var matchHero: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
@@ -182,18 +184,20 @@ public struct FixtureDetailView: View {
                 StatusBadge(status: fixture.status)
             }
 
+            Text("\(fixture.homeTeam.name) v \(fixture.awayTeam.name)")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    teamName(fixture.homeTeam, alignment: .leading)
-                    centreLine
-                    teamName(fixture.awayTeam, alignment: .leading)
-                }
+                centreLine
             } else {
+                // Scoreboard: crests in title order around the kickoff time.
                 HStack(alignment: .center, spacing: Theme.Spacing.sm) {
-                    teamName(fixture.homeTeam, alignment: .center)
+                    TeamCrest(url: fixture.homeTeam.crest, size: 40)
                     centreLine
-                        .frame(minWidth: 96)
-                    teamName(fixture.awayTeam, alignment: .center)
+                        .frame(maxWidth: .infinity)
+                    TeamCrest(url: fixture.awayTeam.crest, size: 40)
                 }
             }
 
@@ -234,28 +238,6 @@ public struct FixtureDetailView: View {
                 .foregroundStyle(Theme.Palette.textPrimary)
                 .monospacedDigit()
         }
-    }
-
-    private func teamName(_ team: Team, alignment: HorizontalAlignment) -> some View {
-        Group {
-            if alignment == .center {
-                VStack(spacing: Theme.Spacing.xs) {
-                    TeamCrest(url: team.crest, size: 34)
-                    Text(team.name)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                HStack(spacing: Theme.Spacing.sm) {
-                    TeamCrest(url: team.crest, size: 28)
-                    Text(team.name)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(Theme.Palette.textPrimary)
     }
 
     private func sectionHeader(_ title: String) -> some View {
