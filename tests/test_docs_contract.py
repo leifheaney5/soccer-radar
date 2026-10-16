@@ -64,7 +64,7 @@ def test_readme_explains_the_task_check_runner_and_mark_safeguard():
 
     ledger = read_doc('todo.md')
     task_ids = re.findall(r'^- \[[ x]\] (T\d{3}):', ledger, flags=re.MULTILINE)
-    assert task_ids == [f'T{number:03d}' for number in range(1, 11)]
+    assert task_ids == [f'T{number:03d}' for number in range(1, 12)]
     for task_id in task_ids:
         task = re.search(
             rf'^- \[[ x]\] {task_id}:.*?(?=^- \[[ x]\] T\d{{3}}:|\Z)',
