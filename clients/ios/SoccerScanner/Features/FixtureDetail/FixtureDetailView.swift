@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct FixtureDetailView: View {
     @AppStorage("soccer-radar:broadcast-region") private var broadcastRegion = "all"
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let fixture: Fixture
     let timeZone: TimeZone
     @Binding private var scoresRevealed: Bool
@@ -167,24 +168,34 @@ public struct FixtureDetailView: View {
         .accessibilityIdentifier("fixture-detail")
     }
 
-    /// The web "Match context" panel: competition, fixture title, status, and
-    /// crested team panels around the kickoff time (or the revealed score).
+    /// The web "Match context" panel as a compact scoreboard: competition and
+    /// status, then both crested teams around the kickoff time (or the score
+    /// the viewer chose to reveal). Kept short so the details below stay in view.
     private var matchHero: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            if let competition = fixture.competition?.displayName {
-                Text(competition)
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
+                Text(fixture.competition?.displayName ?? String(localized: "Match"))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.Palette.textSecondary)
+                    .lineLimit(1)
+                Spacer(minLength: Theme.Spacing.sm)
+                StatusBadge(status: fixture.status)
             }
-            Text("\(fixture.homeTeam.name) v \(fixture.awayTeam.name)")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.Palette.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-            StatusBadge(status: fixture.status)
 
-            teamPanel(fixture.homeTeam)
-            centreLine
-            teamPanel(fixture.awayTeam)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    teamName(fixture.homeTeam, alignment: .leading)
+                    centreLine
+                    teamName(fixture.awayTeam, alignment: .leading)
+                }
+            } else {
+                HStack(alignment: .center, spacing: Theme.Spacing.sm) {
+                    teamName(fixture.homeTeam, alignment: .center)
+                    centreLine
+                        .frame(minWidth: 96)
+                    teamName(fixture.awayTeam, alignment: .center)
+                }
+            }
 
             if revealedScoreText == nil {
                 if fixture.status.scoreAvailable && fixture.hasFullTimeScore {
@@ -200,7 +211,7 @@ public struct FixtureDetailView: View {
                 }
             }
         }
-        .padding(Theme.Spacing.lg)
+        .padding(Theme.Spacing.md + 2)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(
             border: fixture.status.isActive
@@ -214,30 +225,37 @@ public struct FixtureDetailView: View {
     private var centreLine: some View {
         if let scoreText = revealedScoreText {
             Text(scoreText)
-                .font(Theme.Typography.data(.largeTitle, weight: .bold))
+                .font(Theme.Typography.data(.title, weight: .bold))
                 .foregroundStyle(Theme.Palette.textPrimary)
-                .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("detail-score")
         } else {
             Text(FixtureTime.kickoff(fixture.utcDate, in: timeZone))
-                .font(Theme.Typography.data(.title2, weight: .medium))
+                .font(Theme.Typography.data(.title3, weight: .medium))
                 .foregroundStyle(Theme.Palette.textPrimary)
                 .monospacedDigit()
-                .frame(maxWidth: .infinity)
         }
     }
 
-    private func teamPanel(_ team: Team) -> some View {
-        HStack(spacing: Theme.Spacing.md) {
-            TeamCrest(url: team.crest, size: 32)
-            Text(team.name)
-                .font(.headline)
-                .foregroundStyle(Theme.Palette.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+    private func teamName(_ team: Team, alignment: HorizontalAlignment) -> some View {
+        Group {
+            if alignment == .center {
+                VStack(spacing: Theme.Spacing.xs) {
+                    TeamCrest(url: team.crest, size: 34)
+                    Text(team.name)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                HStack(spacing: Theme.Spacing.sm) {
+                    TeamCrest(url: team.crest, size: 28)
+                    Text(team.name)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
-        .padding(Theme.Spacing.md)
-        .cardSurface(fill: Theme.Palette.bgSecondary, radius: Theme.Radius.control)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(Theme.Palette.textPrimary)
     }
 
     private func sectionHeader(_ title: String) -> some View {

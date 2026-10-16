@@ -105,20 +105,21 @@ public struct FixtureListView: View {
         ToolbarItem(placement: .principal) {
             BrandLockup()
         }
+        // System toolbar buttons, not custom-styled ones: a plain-styled pair is
+        // merged into one element by the toolbar, so neither can be targeted.
         ToolbarItem(placement: .topBarTrailing) {
-            HStack(spacing: Theme.Spacing.sm) {
+            HStack {
                 Button {
                     model.toggleScores()
                 } label: {
-                    ToolbarIcon(
-                        title: model.scoresRevealed
+                    Label(
+                        model.scoresRevealed
                             ? String(localized: "Hide scores")
                             : String(localized: "Reveal scores"),
-                        systemImage: model.scoresRevealed ? "eye" : "eye.slash",
-                        active: model.scoresRevealed
+                        systemImage: model.scoresRevealed ? "eye" : "eye.slash"
                     )
                 }
-                .buttonStyle(.plain)
+                .tint(model.scoresRevealed ? Theme.Palette.accentPrimary : Theme.Palette.textPrimary)
                 .accessibilityIdentifier("score-toggle")
 
                 NavigationLink {
@@ -127,9 +128,9 @@ public struct FixtureListView: View {
                         timeZone: model.selectedTimeZone
                     )
                 } label: {
-                    ToolbarIcon(title: String(localized: "Settings"), systemImage: "gearshape")
+                    Label(String(localized: "Settings"), systemImage: "gearshape")
                 }
-                .buttonStyle(.plain)
+                .tint(Theme.Palette.textPrimary)
                 .accessibilityIdentifier("settings-link")
             }
         }
@@ -150,51 +151,77 @@ public struct FixtureListView: View {
     }
 
     private var fixtureControlContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             // At accessibility sizes the day controls come first so they stay
             // on screen; the summary header would push them out of view.
             if !dynamicTypeSize.isAccessibilitySize {
                 pageHeader
             }
             VStack(spacing: Theme.Spacing.sm) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        dayNavigationButtons
-                        datePicker
-                        Spacer(minLength: 0)
-                        timeZoneMenu
-                    }
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    accessibilityControlRows
+                } else {
+                    // Kept to three rows so the fixtures, not the controls,
+                    // own most of the screen.
+                    ViewThatFits(in: .horizontal) {
                         HStack(spacing: Theme.Spacing.sm) {
                             dayNavigationButtons
                             datePicker
+                            Spacer(minLength: 0)
+                            timeZoneMenu
+                            advancedFilterButton
                         }
-                        timeZoneMenu
+                        VStack(spacing: Theme.Spacing.sm) {
+                            HStack(spacing: Theme.Spacing.sm) {
+                                dayNavigationButtons
+                                datePicker
+                                Spacer(minLength: 0)
+                            }
+                            HStack(spacing: Theme.Spacing.sm) {
+                                timeZoneMenu
+                                Spacer(minLength: 0)
+                                advancedFilterButton
+                            }
+                        }
                     }
+                    statusFilter
                 }
-                if dynamicTypeSize.isAccessibilitySize {
-                    selectedDayText
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                statusFilter
-                advancedFilterButton
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.sm + 2)
             .cardSurface(fill: Theme.Palette.bgSecondary)
         }
         .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.top, Theme.Spacing.sm)
-        .padding(.bottom, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.xs)
+        .padding(.bottom, Theme.Spacing.sm)
+    }
+
+    private var accessibilityControlRows: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(spacing: Theme.Spacing.sm) {
+                dayNavigationButtons
+                datePicker
+            }
+            timeZoneMenu
+            selectedDayText
+            statusFilter
+            advancedFilterButton
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// The web dashboard's page header: title, selected day, and day summary.
     private var pageHeader: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(String(localized: "Fixtures"))
-                .font(.title.weight(.bold))
-                .foregroundStyle(Theme.Palette.textPrimary)
-                .accessibilityAddTraits(.isHeader)
-            selectedDayText
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
+                Text(String(localized: "Fixtures"))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Theme.Spacing.sm)
+                selectedDayText
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
             if let summary = daySummary {
                 summaryLine(summary)
             }
@@ -273,8 +300,17 @@ public struct FixtureListView: View {
             advancedFilterPresented = true
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
-                Label(String(localized: "Advanced filters"), systemImage: "slider.horizontal.3")
-                Spacer(minLength: 0)
+                // Matches the web's compact "Filters" control; the accessible
+                // name stays "Advanced filters".
+                Label(
+                    dynamicTypeSize.isAccessibilitySize
+                        ? String(localized: "Advanced filters")
+                        : String(localized: "Filters"),
+                    systemImage: "slider.horizontal.3"
+                )
+                if dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
                 Text(String(model.activeFilterCount))
                     .font(Theme.Typography.data(.caption, weight: .bold))
                     .foregroundStyle(
@@ -290,7 +326,7 @@ public struct FixtureListView: View {
                     )
                     .accessibilityIdentifier("advanced-filter-count")
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
         }
         .buttonStyle(SurfaceButtonStyle())
         .accessibilityLabel(String(localized: "Advanced filters"))
@@ -596,28 +632,6 @@ public struct FixtureListView: View {
     }
 }
 
-/// The web header's square icon buttons; the title stays in the accessibility
-/// tree while only the icon is drawn.
-private struct ToolbarIcon: View {
-    let title: String
-    let systemImage: String
-    var active = false
-
-    var body: some View {
-        Label(title, systemImage: systemImage)
-            .labelStyle(.iconOnly)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(active ? Theme.Palette.accentPrimary : Theme.Palette.textPrimary)
-            .frame(width: 38, height: 38)
-            .cardSurface(
-                fill: Theme.Palette.bgSecondary,
-                border: active ? Theme.Palette.accentPrimary : Theme.Palette.borderColor,
-                radius: Theme.Radius.control
-            )
-            .contentShape(Rectangle())
-    }
-}
-
 /// Competition group heading, as on the web match schedule.
 private struct CompetitionHeader: View {
     let group: FixtureCompetitionGroup
@@ -635,7 +649,7 @@ private struct CompetitionHeader: View {
         }
         .textCase(nil)
         .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.top, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.sm)
         .padding(.bottom, Theme.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.Palette.bgPrimary)
@@ -651,9 +665,9 @@ private extension View {
             .listRowSeparator(.hidden)
             .listSectionSeparator(.hidden)
             .listRowInsets(EdgeInsets(
-                top: Theme.Spacing.xs + 2,
+                top: Theme.Spacing.xs,
                 leading: Theme.Spacing.lg,
-                bottom: Theme.Spacing.xs + 2,
+                bottom: Theme.Spacing.xs,
                 trailing: Theme.Spacing.lg
             ))
     }
@@ -839,7 +853,7 @@ struct FixtureRow: View {
                 normalLayout
             }
         }
-        .padding(Theme.Spacing.md + 2)
+        .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, minHeight: Theme.minimumTapTarget, alignment: .leading)
         .cardSurface(
             border: fixture.status.isActive
@@ -849,10 +863,11 @@ struct FixtureRow: View {
         .contentShape(Rectangle())
     }
 
-    /// Web fixture card: status and kickoff, the score slot, crested team
-    /// lines, then competition, venue, and a details affordance.
+    /// Web fixture card: status and kickoff with the score slot, crested team
+    /// lines, and the venue when supplied. The competition is the section
+    /// header, so the card does not repeat it.
     private var normalLayout: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack(alignment: .center, spacing: Theme.Spacing.sm) {
                 StatusBadge(status: fixture.status)
                 Text(FixtureTime.kickoff(fixture.utcDate, in: timeZone))
@@ -861,54 +876,35 @@ struct FixtureRow: View {
                     .monospacedDigit()
                 Spacer(minLength: Theme.Spacing.sm)
                 scoreIndicator
+                // The whole card is the control; the chevron is a visual cue.
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.Palette.textMuted)
+                    .accessibilityHidden(true)
             }
 
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 teamLine(fixture.homeTeam)
                 teamLine(fixture.awayTeam)
             }
 
-            HStack(alignment: .bottom, spacing: Theme.Spacing.sm) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let competition = fixture.competition?.displayName {
-                        Text(competition)
-                    }
-                    if let venue = fixture.venue, !venue.isEmpty {
-                        Text(venue)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(Theme.Palette.textMuted)
-                .lineLimit(1)
-                Spacer(minLength: Theme.Spacing.sm)
-                detailsAffordance
+            if let venue = fixture.venue, !venue.isEmpty {
+                Label(venue, systemImage: "mappin.and.ellipse")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Palette.textMuted)
+                    .lineLimit(1)
             }
         }
     }
 
     private func teamLine(_ team: Team) -> some View {
-        HStack(spacing: Theme.Spacing.sm + 2) {
-            TeamCrest(url: team.crest, size: 30)
+        HStack(spacing: Theme.Spacing.sm) {
+            TeamCrest(url: team.crest, size: 22)
             Text(team.name)
-                .font(.body.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.Palette.textPrimary)
-                .lineLimit(2)
+                .lineLimit(1)
         }
-    }
-
-    private var detailsAffordance: some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            Text(String(localized: "Details"))
-            Image(systemName: "chevron.right")
-                .font(.caption2.weight(.bold))
-        }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(Theme.Palette.textSecondary)
-        .padding(.horizontal, Theme.Spacing.sm + 2)
-        .padding(.vertical, Theme.Spacing.xs + 2)
-        .cardSurface(fill: Theme.Palette.bgSecondary, radius: Theme.Radius.control)
-        // The whole card is the control; this is a visual cue only.
-        .accessibilityHidden(true)
     }
 
     private var accessibilityLayout: some View {
