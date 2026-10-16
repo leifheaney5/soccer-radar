@@ -6,8 +6,18 @@ final class FixtureListPresentationTests: XCTestCase {
         try JSONDecoder().decode([Fixture].self, from: Data(json.utf8))
     }
 
-    private func match(_ id: String, status: String, competition: String?) -> String {
-        let competitionJSON = competition.map { #"{"name":"\#($0)"}"# } ?? "null"
+    private func match(
+        _ id: String,
+        status: String,
+        competition: String?,
+        competitionId: String? = nil
+    ) -> String {
+        var fields: [String] = []
+        if let competitionId { fields.append(#""canonicalId":"\#(competitionId)""#) }
+        if let competition { fields.append(#""name":"\#(competition)""#) }
+        let competitionJSON = competition == nil && competitionId == nil
+            ? "null"
+            : "{" + fields.joined(separator: ",") + "}"
         return """
         {"canonicalFixtureId":"\(id)","utcDate":"2026-08-05T19:00:00Z",
          "status":{"code":"\(status)"},"homeTeam":{"name":"Home \(id)"},
@@ -58,6 +68,25 @@ final class FixtureListPresentationTests: XCTestCase {
         XCTAssertEqual(groups.map { $0.fixtures.map(\.id) }, [["a", "d"], ["b", "e"], ["c"]])
         XCTAssertEqual(groups.map(\.countLabel), ["2 matches", "2 matches", "1 match"])
         XCTAssertEqual(groups.flatMap(\.fixtures).count, day.count, "grouping must not drop fixtures")
+    }
+
+    func testGroupingUsesCanonicalIdentityRatherThanTheProviderLabel() throws {
+        let day = try fixtures("""
+        [\(match("a", status: "TIMED", competition: "Premier League", competitionId: "eng.1")),
+         \(match("b", status: "TIMED", competition: "English Premier League", competitionId: "eng.1")),
+         \(match("c", status: "TIMED", competition: "Cup", competitionId: "eng.fa")),
+         \(match("d", status: "TIMED", competition: "Cup", competitionId: "esp.copa_del_rey")),
+         \(match("e", status: "TIMED", competition: "Cup")),
+         \(match("f", status: "TIMED", competition: nil, competitionId: "eng.1"))]
+        """)
+
+        let groups = FixtureGrouping.byCompetition(day)
+
+        // One competition under two provider labels shares a section titled
+        // by its first label; distinct competitions sharing a label stay apart.
+        XCTAssertEqual(groups.map { $0.fixtures.map(\.id) }, [["a", "b", "f"], ["c"], ["d"], ["e"]])
+        XCTAssertEqual(groups.map(\.title), ["Premier League", "Cup", "Cup", "Cup"])
+        XCTAssertEqual(Set(groups.map(\.id)).count, groups.count, "section identities must be unique")
     }
 
     func testGroupingAnEmptyDayProducesNoSections() {

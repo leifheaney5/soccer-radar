@@ -55,12 +55,16 @@ public struct FixtureCompetitionGroup: Identifiable, Equatable, Sendable {
 public enum FixtureGrouping {
     /// Groups by competition in first-appearance order, so the chosen sort
     /// still decides both group order and order within each group.
+    ///
+    /// Identity follows the web's `groupMatches`: the canonical ID when the
+    /// provider supplied one, otherwise the display name. The section title is
+    /// kept separate from that key, so provider label variants of one
+    /// competition share a section and distinct competitions never merge.
     public static func byCompetition(_ fixtures: [Fixture]) -> [FixtureCompetitionGroup] {
-        let otherKey = "\u{0}other"
         var order: [String] = []
         var buckets: [String: [Fixture]] = [:]
         for fixture in fixtures {
-            let key = fixture.competition?.displayName ?? otherKey
+            let key = groupKey(fixture.competition)
             if buckets[key] == nil {
                 order.append(key)
                 buckets[key] = []
@@ -68,11 +72,24 @@ public enum FixtureGrouping {
             buckets[key]?.append(fixture)
         }
         return order.map { key in
-            FixtureCompetitionGroup(
+            let members = buckets[key] ?? []
+            return FixtureCompetitionGroup(
                 id: key,
-                title: key == otherKey ? String(localized: "Other fixtures") : key,
-                fixtures: buckets[key] ?? []
+                title: members.lazy.compactMap { $0.competition?.displayName }.first
+                    ?? String(localized: "Other fixtures"),
+                fixtures: members
             )
         }
+    }
+
+    private static func groupKey(_ competition: Competition?) -> String {
+        if let canonicalId = competition?.canonicalId?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !canonicalId.isEmpty {
+            return "id:\(canonicalId)"
+        }
+        if let name = competition?.displayName {
+            return "name:\(name)"
+        }
+        return "other"
     }
 }
