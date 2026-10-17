@@ -572,12 +572,14 @@ public struct FixtureListView: View {
                 .themedListRows()
             } else {
                 ForEach(FixtureGrouping.byCompetition(model.filteredFixtures)) { group in
+                    // The heading is an ordinary row, not a section header:
+                    // plain-list headers pin while scrolling and, in a short
+                    // landscape list, can cover the row a person is tapping.
                     Section {
+                        CompetitionHeader(group: group)
                         ForEach(group.fixtures) { fixture in
                             fixtureButton(fixture)
                         }
-                    } header: {
-                        CompetitionHeader(group: group)
                     }
                     .themedListRows()
                 }
@@ -889,10 +891,16 @@ struct FixtureRow: View {
             }
 
             if let venue = fixture.venue, !venue.isEmpty {
-                Label(venue, systemImage: "mappin.and.ellipse")
-                    .font(.caption)
-                    .foregroundStyle(Theme.Palette.textMuted)
-                    .lineLimit(1)
+                // A plain stack, not a Label: Label reserves a wide icon column
+                // that left the pin detached from the venue name.
+                HStack(spacing: Theme.Spacing.xs) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .accessibilityHidden(true)
+                    Text(venue)
+                }
+                .font(.caption)
+                .foregroundStyle(Theme.Palette.textMuted)
+                .lineLimit(1)
             }
         }
     }
